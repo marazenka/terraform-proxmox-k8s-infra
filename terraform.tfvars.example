@@ -1,0 +1,70 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# NEVER commit terraform.tfvars to version control.
+
+# ==============================================================================
+# Proxmox Connection  (SENSITIVE — keep out of git)
+# ==============================================================================
+proxmox_endpoint  = "https://YOUR_PROXMOX_IP:8006/"
+proxmox_api_token = "terraform-prov@pve!tf-token=YOUR-SECRET-UUID"
+proxmox_insecure  = true
+
+# ==============================================================================
+# VM Access  (SENSITIVE — keep out of git)
+# ==============================================================================
+ssh_public_key = "ssh-ed25519 AAAA... user@host"
+
+# ==============================================================================
+# Proxmox Infrastructure
+# ==============================================================================
+node_name      = "pve"
+template_vm_id = 9000
+
+# ==============================================================================
+# Network
+# ==============================================================================
+network_cidr    = "192.168.50.0/24"
+network_gateway = "192.168.50.1"
+network_bridge  = "vmbr0"
+
+# ==============================================================================
+# Storage
+# ==============================================================================
+disk_datastore = "local-lvm"
+
+# ==============================================================================
+# VM Access
+# ==============================================================================
+vm_user = "ubuntu"
+
+# ==============================================================================
+# HAProxy  (set haproxy_count = 1 to enable the load balancer)
+# IPs: .100, .101, ...
+# ==============================================================================
+haproxy_count      = 0
+haproxy_vm_id_base = 100
+haproxy_ip_offset  = 100
+haproxy_cpu_cores  = 2
+haproxy_memory     = 2048
+haproxy_disk_size  = 20
+
+# ==============================================================================
+# Kubernetes Masters
+# IPs: .101, .102, .103, ...
+# ==============================================================================
+master_count           = 1
+master_vm_id_base      = 200
+master_ip_start_offset = 101
+master_cpu_cores       = 4
+master_memory          = 8192
+master_disk_size       = 25
+
+# ==============================================================================
+# Kubernetes Workers  (set worker_count > 0 to add workers)
+# IPs: .111, .112, .113, ...
+# ==============================================================================
+worker_count           = 0
+worker_vm_id_base      = 300
+worker_ip_start_offset = 111
+worker_cpu_cores       = 4
+worker_memory          = 8192
+worker_disk_size       = 50
