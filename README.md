@@ -1,4 +1,4 @@
-# terraform-proxmox-ubuntu-k8s
+# terraform-proxmox-k8s-infra
 
 OpenTofu / Terraform module that provisions a Kubernetes cluster on Proxmox VE by cloning an Ubuntu cloud-init VM template. Creates optional HAProxy load balancer nodes, configurable master nodes, and configurable worker nodes.
 
@@ -33,7 +33,9 @@ tofu apply
 | `network_gateway` | Default gateway | `192.168.50.1` |
 | `network_bridge` | Proxmox Linux bridge | `vmbr0` |
 | `disk_datastore` | Storage ID for root disks | `local-lvm` |
-| `disk_size` | Root disk size (GiB) | `25` |
+| `haproxy_disk_size` | Root disk size in GiB for HAProxy nodes | `20` |
+| `master_disk_size` | Root disk size in GiB for master nodes | `25` |
+| `worker_disk_size` | Root disk size in GiB for worker nodes | `50` |
 | `vm_user` | cloud-init OS username | `ubuntu` |
 | `ssh_public_key` | SSH public key for VM access | — |
 | `haproxy_count` | Number of HAProxy nodes (0 = disabled) | `0` |
