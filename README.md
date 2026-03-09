@@ -1,70 +1,113 @@
 # terraform-proxmox-k8s-infra
 
-OpenTofu / Terraform module that provisions a Kubernetes cluster on Proxmox VE by cloning an Ubuntu cloud-init VM template. Creates optional HAProxy load balancer nodes, configurable master nodes, and configurable worker nodes.
+OpenTofu / Terraform module that spins up a set of Ubuntu VMs on Proxmox VE by cloning a cloud-init template. The module itself has no opinion about what runs inside the VMs — it just provisions infrastructure.
+
+The primary use case this was built for is quickly standing up a bare-metal Kubernetes cluster using [k3s-ansible](https://github.com/k3s-io/k3s-ansible). That workflow is described below.
 
 ## Requirements
 
-| Tool | Version |
-|---|---|
-| OpenTofu / Terraform | >= 1.6 |
-| bpg/proxmox provider | ~> 0.97 |
+- OpenTofu >= 1.6 (or Terraform >= 1.6)
+- [bpg/proxmox](https://registry.terraform.io/providers/bpg/proxmox/latest) provider `~> 0.97`
+- A Proxmox VE Ubuntu cloud-init VM template. See [`create-vm-template.sh`](create-vm-template.sh).
 
-A Proxmox VE Ubuntu cloud-init template must exist before running this module.  
-See [`create-vm-template.sh`](create-vm-template.sh) for an example of how to build one.
-
-## Quick Start
+## Provision VMs
 
 ```bash
-cp terraform.tfvars.example terraform.tfvars   # fill in your secrets & settings
+cp terraform.tfvars.example terraform.tfvars
+# edit terraform.tfvars — at minimum set proxmox_endpoint, proxmox_api_token, ssh_public_key
 tofu init
 tofu apply
 ```
 
-## Inputs
+All variables are documented in [`variables.tf`](variables.tf). The key knobs are node counts (`master_count`, `worker_count`, `haproxy_count`), per-group CPU/RAM/disk, and the network CIDR + IP offsets used to assign static IPs.
 
-| Variable | Description | Default |
-|---|---|---|
-| `proxmox_endpoint` | Proxmox API URL | — |
-| `proxmox_api_token` | API token `user@realm!id=uuid` | — |
-| `proxmox_insecure` | Skip TLS verification | `true` |
-| `node_name` | Proxmox node name | `pve` |
-| `template_vm_id` | Source template VM ID | `9000` |
-| `network_cidr` | Subnet for all VMs | `192.168.50.0/24` |
-| `network_gateway` | Default gateway | `192.168.50.1` |
-| `network_bridge` | Proxmox Linux bridge | `vmbr0` |
-| `disk_datastore` | Storage ID for root disks | `local-lvm` |
-| `haproxy_disk_size` | Root disk size in GiB for HAProxy nodes | `20` |
-| `master_disk_size` | Root disk size in GiB for master nodes | `25` |
-| `worker_disk_size` | Root disk size in GiB for worker nodes | `50` |
-| `vm_user` | cloud-init OS username | `ubuntu` |
-| `ssh_public_key` | SSH public key for VM access | — |
-| `haproxy_count` | Number of HAProxy nodes (0 = disabled) | `0` |
-| `master_count` | Number of master nodes | `1` |
-| `worker_count` | Number of worker nodes (0 = disabled) | `0` |
+## Deploy Kubernetes with k3s-ansible
 
-See [`variables.tf`](variables.tf) for the full list including VM ID bases, IP offsets, CPU, and memory settings.
+Once the VMs are up, use [k3s-ansible](https://github.com/k3s-io/k3s-ansible) to install k3s across them.
 
-## Outputs
+### 1. Clone k3s-ansible
 
-| Output | Description |
-|---|---|
-| `haproxy_ips` | IP addresses of HAProxy nodes |
-| `master_ips` | IP addresses of master nodes |
-| `worker_ips` | IP addresses of worker nodes |
-| `cluster_summary` | Node count summary |
+```bash
+git clone https://github.com/k3s-io/k3s-ansible.git
+cd k3s-ansible
+```
 
-## IP Addressing
+### 2. Set up Ansible
 
-IPs are computed automatically from `network_cidr` + per-role offset variables using `cidrhost()`.  
-Default layout with a `/24`:
+```bash
+python3 -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install ansible
+```
 
-| Role | Offset variable | Example IPs |
-|---|---|---|
-| HAProxy | `haproxy_ip_offset = 100` | .100, .101, … |
-| Masters | `master_ip_start_offset = 101` | .101, .102, .103 |
-| Workers | `worker_ip_start_offset = 111` | .111, .112, .113 |
+### 3. Configure inventory
+
+```bash
+cp inventory-sample.yml inventory.yml
+```
+
+Edit `inventory.yml` to match the IPs from `tofu output`.
+
+**1 control node + 2 workers:**
+
+```yaml
+k3s_cluster:
+  children:
+    server:
+      hosts:
+        192.168.50.101:   # master-1
+    agent:
+      hosts:
+        192.168.50.111:   # worker-1
+        192.168.50.112:   # worker-2
+  vars:
+    ansible_port: 22
+    ansible_user: ubuntu
+    k3s_version: v1.32.2+k3s1
+    token: "changeme!"   # generate with: openssl rand -base64 48
+    api_endpoint: "{{ hostvars[groups['server'][0]]['ansible_host'] | default(groups['server'][0]) }}"
+```
+
+**Single node** (control plane also schedules workloads — good for home lab):
+
+```yaml
+k3s_cluster:
+  children:
+    server:
+      hosts:
+        192.168.50.101:
+  vars:
+    ansible_port: 22
+    ansible_user: ubuntu
+    k3s_version: v1.32.2+k3s1
+    token: "changeme!"   # generate with: openssl rand -base64 48
+    api_endpoint: "{{ hostvars[groups['server'][0]]['ansible_host'] | default(groups['server'][0]) }}"
+```
+
+### 4. Run the playbook
+
+```bash
+ansible-playbook playbooks/site.yml -i inventory.yml
+```
+
+After it completes, the kubeconfig is merged into `~/.kube/config` under the `k3s-ansible` context:
+
+```bash
+kubectl config use-context k3s-ansible
+kubectl get nodes
+
+# smoke test — run a simple nginx pod
+kubectl run nginx --image=nginx --port=80
+kubectl get pods -w
+kubectl delete pod/nginx
+```
 
 ## Security
 
+- `proxmox_api_token` and `ssh_public_key` are `sensitive` variables — never hardcode them, always pass via `terraform.tfvars`.
+- `terraform.tfvars` and `*.tfstate` are in [`.gitignore`](.gitignore) and must not be committed.
+
+
 - `proxmox_api_token` and `ssh_public_key` are marked `sensitive` and must be supplied via `terraform.tfvars` — never hardcoded.
 - `terraform.tfvars` and `*.tfstate` are listed in [`.gitignore`](.gitignore) and must not be committed.
+
