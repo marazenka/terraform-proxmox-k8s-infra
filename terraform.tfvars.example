@@ -51,7 +51,7 @@ haproxy_disk_size  = 20
 # Kubernetes Masters
 # IPs: .101, .102, .103, ...
 # ==============================================================================
-master_count           = 1
+master_count           = 2
 master_vm_id_base      = 200
 master_ip_start_offset = 101
 master_cpu_cores       = 4
@@ -62,9 +62,22 @@ master_disk_size       = 25
 # Kubernetes Workers  (set worker_count > 0 to add workers)
 # IPs: .111, .112, .113, ...
 # ==============================================================================
-worker_count           = 0
+worker_count           = 2
 worker_vm_id_base      = 300
 worker_ip_start_offset = 111
 worker_cpu_cores       = 4
 worker_memory          = 8192
 worker_disk_size       = 50
+
+# ==============================================================================
+# GPU Node  (set gpu_node_count = 1 to enable)
+# Requires IOMMU + vfio-pci set up on the Proxmox host first.
+# IPs: .121, .122, ...
+# ==============================================================================
+gpu_node_count      = 0
+gpu_node_vm_id_base = 400
+gpu_node_ip_offset  = 121
+gpu_node_cpu_cores  = 8
+gpu_node_memory     = 16384
+gpu_node_disk_size  = 50
+gpu_mapping_name    = "rtx3060"   # name set in Datacenter → Resource Mappings → PCI Devices

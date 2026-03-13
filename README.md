@@ -1,4 +1,4 @@
-# terraform-proxmox-k8s-infra
+# terraform-proxmox-ubuntu-k8s
 
 OpenTofu / Terraform module that spins up a set of Ubuntu VMs on Proxmox VE by cloning a cloud-init template. The module itself has no opinion about what runs inside the VMs — it just provisions infrastructure.
 
@@ -106,8 +106,3 @@ kubectl delete pod/nginx
 
 - `proxmox_api_token` and `ssh_public_key` are `sensitive` variables — never hardcode them, always pass via `terraform.tfvars`.
 - `terraform.tfvars` and `*.tfstate` are in [`.gitignore`](.gitignore) and must not be committed.
-
-
-- `proxmox_api_token` and `ssh_public_key` are marked `sensitive` and must be supplied via `terraform.tfvars` — never hardcoded.
-- `terraform.tfvars` and `*.tfstate` are listed in [`.gitignore`](.gitignore) and must not be committed.
-

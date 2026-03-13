@@ -202,3 +202,49 @@ variable "worker_memory" {
   type        = number
   default     = 8192
 }
+
+# ==============================================================================
+# GPU Nodes
+# ==============================================================================
+
+variable "gpu_node_count" {
+  description = "Number of GPU passthrough nodes to create. Set to 0 to skip."
+  type        = number
+  default     = 0
+}
+
+variable "gpu_node_vm_id_base" {
+  description = "Base VM ID for GPU nodes."
+  type        = number
+  default     = 400
+}
+
+variable "gpu_node_ip_offset" {
+  description = "Host offset within network_cidr for the first GPU node (e.g. 121 → .121)"
+  type        = number
+  default     = 121
+}
+
+variable "gpu_node_cpu_cores" {
+  description = "Number of vCPUs allocated to each GPU node"
+  type        = number
+  default     = 8
+}
+
+variable "gpu_node_memory" {
+  description = "RAM in MiB allocated to each GPU node"
+  type        = number
+  default     = 16384
+}
+
+variable "gpu_node_disk_size" {
+  description = "Root disk size in GiB for GPU nodes"
+  type        = number
+  default     = 50
+}
+
+variable "gpu_mapping_name" {
+  description = "Name of the Proxmox Resource Mapping for the GPU (Datacenter → Resource Mappings → PCI Devices). Using a mapping avoids the 'only root can set hostpci' error with non-root API tokens."
+  type        = string
+  default     = "rtx3060"
+}
